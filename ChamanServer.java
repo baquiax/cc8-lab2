@@ -2,7 +2,7 @@ import java.net.ServerSocket;
 import edu.galileo.baquiax.HttpRequest;
 
 public final class ChamanServer {
-    private static final int PORT = 80;
+    private static final int PORT = 2407;
     public static void main(String args[]) {        
         try {
             ServerSocket ss = new ServerSocket(PORT);
