@@ -1,5 +1,5 @@
 import java.net.ServerSocket;
-import edu.galileo.baquiax.HttpRequest;
+import edu.galileo.baquiax.http.HttpRequest;
 
 public final class ChamanServer {
     private static final int PORT = 2407;

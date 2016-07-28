@@ -1,4 +1,4 @@
-package edu.galileo.baquiax;
+package edu.galileo.baquiax.http;
 import java.net.Socket;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
@@ -8,30 +8,38 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.FileReader;
 import java.io.*;
+import edu.galileo.baquiax.Utils;
+import os.path;
 
-public class HttpRequest implements Runnable {
+public class HttpRequest implements Runnable {    
     private static String NOT_FOUND_FILENAME = "404.html";
+    private static String BAD_REQUEST_FILENAME = "400.html";
     private Socket clientSocket;
 
     public HttpRequest(Socket c) {
-        System.out.println("New connection");
+        this.print("NEW HTTP REQUEST");
         this.clientSocket = c;
     }
 
     public void run() {
         try {
-            InputStreamReader isr = new InputStreamReader(this.clientSocket.getInputStream());
-            BufferedReader br = new BufferedReader(isr);
-            String line;
-            while ((line = br.readLine()) != null) {
-                System.out.println(line);
-                break;                
-                //if We need read all headers
-                //if (line.length() == 0) {
-                //    break;
-                //}
-            }
+            String requestString = this.getStringFromInputStream();
+            HttpStatus responseStatus;
+            if (requestString != null) {
+                String requestFirstLine = Utils.splitAndReturnElement(requestString, "\n", 0);
+                if (requestFirstLine != null) {
+                    String fileName = Utils.splitAndReturnElement(requestFirstLine, " ", 1);      
+                } 
+            }       
 
+            if (fileName == null) {
+                this.writeWithError(400);
+                return;                        
+            } 
+
+
+            String line = new String(clientDataAsBytes);            
+            this.print(line);
             String fileName = NOT_FOUND_FILENAME;
             String[] parts = line.split(" ");
             String conteType = "text/html";
@@ -87,9 +95,69 @@ public class HttpRequest implements Runnable {
             e.printStackTrace();
         }
         
+    }        
+
+    public Utils.ContentType getContentType(fileName) {
+        String[] fileNameParts = fileName.split(".");
+        if (fileNameParts.length > 0) {
+            return Utils.getContentTypeForExtension(fileNameParts[fileNameParts.length - 1]);
+        }
+        return Utils.getContentTypeForExtension(null);
     }
 
-    public String prepareHeaders(HttpStatus statusReponse, String conteType, int length) {
+    private void writeWithFilename(String fileName) {
+        Strign relativePath = Utils.getRelativePathToWWW(fileName);
+        if (!os.path.isfile(relativePath)) {
+            writeWithError(404);
+            return;
+        }
+
+        HttpStatus responseStatus = new HttpStatus("HTTP/1.1", errorCode, "OK");
+        Utils.ContentType ct = getContentType(fileName);
+
+        File file = new File(relativePath);
+        byte[] fileData = new byte[(int) file.length()];
+        DataInputStream dis = new DataInputStream(new FileInputStream(file));
+        dis.readFully(fileData);
+        dis.close();        
+              
+        if (ct instanceof Binary) {
+            String headers = this.prepareHeaders(responseStatus, ct, fileData.length);
+            byte[] headersBytes = headers.getBytes();
+            this.clientSocket.getOutputStream().write(headersBytes, 0, headersBytes.length);
+            this.clientSocket.getOutputStream().write(fileData, 0, fileData.length);
+        } else {
+
+        }
+    }    
+
+    private void writeWithError(int errorCode) {
+        Strign relativePath = Utils.getRelativePathToError(fileName);
+        String desc = "BAD REQUEST";
+        switch (errorCode) {
+            case 404:
+                desc = "NOT FOUD";
+                break;
+            default:
+
+        }
+        HttpStatus responseStatus = new HttpStatus("HTTP/1.1", errorCode, desc);
+    }
+
+    private String getStringFromInputStream() {
+        String result = null;
+        try {
+            InputStream is = this.clientSocket.getInputStream();
+            int inputLength = is.available();
+            byte[] inputBytes = new byte[inputLength];
+            is.read(inputBytes,0,inputLength);
+            result = new String(inputBytes);
+        } catch (Exception e) {
+        }                
+        return result
+    }
+
+    private String prepareHeaders(HttpStatus statusReponse, String conteType, int length) {
         ArrayList<String> headers = new ArrayList<String>();        
         Date d = new Date();
         headers.add(statusReponse.toString());        
@@ -99,21 +167,10 @@ public class HttpRequest implements Runnable {
         headers.add("Content-Length:" + length);
         headers.add("Content-Type: " + conteType);
         headers.add("\r\n");        
-        return Utilis.joinArrayList("\r\n", headers);
+        return Utils.joinArrayList("\r\n", headers);
     }
 
-    final class HttpStatus {    
-        private ArrayList<String> componets; 
-
-        public HttpStatus(String version, int statusCode, String phrase) {
-            this.componets = new ArrayList<String>();
-            this.componets.add(version);
-            this.componets.add(String.valueOf(statusCode));
-            this.componets.add(phrase);            
-        }
-
-        public String toString() {            
-            return joinArrayList(" ", componets);
-        }
-    } 
+    private void print(Object o) {
+        System.out.println("CLIENT -> " + o.toString());
+    }
 }
