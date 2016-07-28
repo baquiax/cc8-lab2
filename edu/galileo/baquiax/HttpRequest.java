@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.FileReader;
-import java.io.File;
+import java.io.*;
 
 public class HttpRequest implements Runnable {
     private static String NOT_FOUND_FILENAME = "404.html";
@@ -25,8 +25,7 @@ public class HttpRequest implements Runnable {
             String line;
             while ((line = br.readLine()) != null) {
                 System.out.println(line);
-                break;
-                
+                break;                
                 //if We need read all headers
                 //if (line.length() == 0) {
                 //    break;
@@ -35,37 +34,53 @@ public class HttpRequest implements Runnable {
 
             String fileName = NOT_FOUND_FILENAME;
             String[] parts = line.split(" ");
+            String conteType = "text/html";
             if (parts.length == 3) {
-                if (parts[1].endsWith("html")) {
-                    fileName = parts[1];                     
-                }
+                fileName = parts[1];                
             }
 
             if (fileName.equals("/")) {
                 fileName = "\\index.html";
             } 
             
+            if (fileName.endsWith("jpg")) {        
+                conteType = "image/jpeg"; 
+            }
+
             fileName = fileName.replace("\\", File.separator);
             fileName = fileName.replace("/", File.separator);
             System.out.println(System.getProperty("user.dir") + File.separator + "www" + fileName);                        
             
             Writer w = new OutputStreamWriter(this.clientSocket.getOutputStream(), "UTF-8");
-            HttpStatus status = new HttpStatus("HTTP/1.1", 200, "OK");
-            System.out.println(getHTTPReponse(status, "Hola"));
+            HttpStatus status = new HttpStatus("HTTP/1.1", 200, "OK");            
 
             String html = "";
             try {
-                BufferedReader in = new BufferedReader(new FileReader(System.getProperty("user.dir") + File.separator + "www" + fileName));                        
-                String lineO;
-                while((lineO = in.readLine()) != null) {
-                    html += lineO; 
-                }
-                in.close();
+                String realPath = System.getProperty("user.dir") + File.separator + "www" + fileName;
+                if (conteType.equals("text/html")) {
+                    BufferedReader in = new BufferedReader(new FileReader(realPath));                                        
+                    String lineO;
+                    while((lineO = in.readLine()) != null) {
+                        html += lineO;
+                    }
+                    String headers = this.prepareHeaders(status, conteType, html.length());
+                    w.write(headers);
+                    w.write(html);
+                } else {                                        
+                    File file = new File(realPath);
+                    byte[] fileData = new byte[(int) file.length()];
+                    DataInputStream dis = new DataInputStream(new FileInputStream(file));
+                    dis.readFully(fileData);
+                    dis.close();
+                    String headers = this.prepareHeaders(status, conteType, fileData.length);
+                    byte[] headresBytes = headers.getBytes();                                        
+                    this.clientSocket.getOutputStream().write(headresBytes, 0, headresBytes.length);
+                    this.clientSocket.getOutputStream().write(fileData, 0, fileData.length);
+                }                                                
             } catch (Exception e) {
                 html = "NOT FOUND";
             }            
-            
-            w.write(getHTTPReponse(status, html));            
+                                    
             w.close();            
             this.clientSocket.close();
         } catch (Exception e) {
@@ -74,32 +89,20 @@ public class HttpRequest implements Runnable {
         
     }
 
-    public String getHTTPReponse(HttpStatus statusReponse, String htmlResponse) {
+    public String prepareHeaders(HttpStatus statusReponse, String conteType, int length) {
         ArrayList<String> headers = new ArrayList<String>();        
         Date d = new Date();
         headers.add(statusReponse.toString());        
         headers.add("Connection: close");            
         headers.add("Date:" + d);
         headers.add("Server: ChamanServer");            
-        headers.add("Content-Length:" + htmlResponse.getBytes().length);
-        headers.add("Content-Type: text/html");
-        headers.add("\r\n");
-        
-        return joinArrayList("\r\n", headers).concat(htmlResponse);
+        headers.add("Content-Length:" + length);
+        headers.add("Content-Type: " + conteType);
+        headers.add("\r\n");        
+        return Utilis.joinArrayList("\r\n", headers);
     }
 
-    private String joinArrayList (String joiner, ArrayList<String> array) {
-        String result = "";
-        for (int i = 0; i < array.size(); i++) {
-            result += array.get(i);
-            if (i < array.size() - 1) {
-                result += joiner;
-            }
-        }
-        return result;
-    }
-
-    final class HttpStatus {
+    final class HttpStatus {    
         private ArrayList<String> componets; 
 
         public HttpStatus(String version, int statusCode, String phrase) {
