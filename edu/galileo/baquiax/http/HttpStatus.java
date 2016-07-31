@@ -1,5 +1,5 @@
 package edu.galileo.baquiax.http;
-import edu.galileo.baquiax.Utils;
+import edu.galileo.baquiax.utils.*;
 import java.util.ArrayList;
 
 
@@ -14,6 +14,6 @@ public class HttpStatus {
     }
 
     public String toString() {            
-        return joinArrayList(" ", componets);
+        return Utils.joinArrayList(" ", componets);
     }
 }
