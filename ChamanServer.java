@@ -1,5 +1,6 @@
 import java.net.ServerSocket;
 import edu.galileo.baquiax.http.HttpRequest;
+import edu.galileo.baquiax.utils.Utils;
 import java.util.Properties;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.ExecutorService;
@@ -9,9 +10,22 @@ import java.io.InputStream;
 import java.io.FileInputStream;
 
 public final class ChamanServer {
-    private static final int PORT = 8080;
+    public static final int PORT = 8080;    
+
     public static void main(String args[]) {        
         try {
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                public void run() {
+                    try {                
+                        Utils.writeReport();
+                        System.out.println("Shouting down ...");        
+                    } catch (Exception ex) {
+                        // TODO Auto-generated catch block
+                        ex.printStackTrace();
+                    }
+                }
+            });
+
             Properties prop = new Properties();
             InputStream is = new FileInputStream("config.properties");
             prop.load(is);
@@ -20,10 +34,12 @@ public final class ChamanServer {
             if (maxThreadsString != null) {
                 maxThreads = Math.max(1,Integer.parseInt(maxThreadsString));    
             }
+            System.out.println("MaxThreads: " + maxThreads);
+            Utils.MAX_THREADS = maxThreads;
             ExecutorService threadPoolExecutor = new ThreadPoolExecutor (
-                5,
                 maxThreads,
-                5000,
+                maxThreads,
+                15000,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<Runnable>()
             );
@@ -37,7 +53,8 @@ public final class ChamanServer {
                 } catch (Exception e) {
                     e.printStackTrace();
                 }        
-            }   
+            }
+
         } catch (Exception e) {
             e.printStackTrace();
         }        

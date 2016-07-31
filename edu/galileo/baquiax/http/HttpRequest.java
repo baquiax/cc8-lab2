@@ -11,13 +11,14 @@ import java.io.InputStream;
 import java.io.DataInputStream;
 import java.io.FileInputStream;
 
-
 public class HttpRequest implements Runnable {    
     private static String NOT_FOUND_FILENAME = "404.html";
     private static String BAD_REQUEST_FILENAME = "400.html";
     private Socket clientSocket;
+    private long startTime;     
 
     public HttpRequest(Socket c) {
+        this.startTime = System.currentTimeMillis();
         this.print("NEW HTTP REQUEST");
         this.clientSocket = c;
     }
@@ -33,15 +34,19 @@ public class HttpRequest implements Runnable {
                     fileName = Utils.splitAndReturnElement(requestFirstLine, " ", 1);      
                 } 
             }       
-
+            this.print("filename: " + fileName);
             if (fileName == null) {
                 this.writeWithError(400);                                        
             } else {
                 fileName = fileName.replace("\\", File.separator);
                 fileName = fileName.replace("/", File.separator);
                 this.writeWithSuccess(fileName);
-            }                                                                            
+            }
+
             this.clientSocket.close();
+            long endTime = System.currentTimeMillis();
+            long difference = endTime - this.startTime;
+            Utils.addReponseTime(difference);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -111,6 +116,7 @@ public class HttpRequest implements Runnable {
             is.read(inputBytes,0,inputLength);
             result = new String(inputBytes);
         } catch (Exception e) {
+            e.printStackTrace();
         }                
         return result;
     }
@@ -118,9 +124,12 @@ public class HttpRequest implements Runnable {
     private String prepareHeaders(HttpStatus statusReponse, String conteType, int length) {
         ArrayList<String> headers = new ArrayList<String>();        
         Date d = new Date();
-        headers.add(statusReponse.toString());        
+        headers.add(statusReponse.toString());
         headers.add("Connection: close");            
         headers.add("Date:" + d);
+        headers.add("Cache-Control: no-cache, no-store, must-revalidate");
+        headers.add("Pragma: no-cache");
+        headers.add("Expires: 0");
         headers.add("Server: ChamanServer");            
         headers.add("Content-Length:" + length);
         headers.add("Content-Type: " + conteType);
